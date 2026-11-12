@@ -1,0 +1,424 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>LX Web Console — prototype (SPEC 181)</title>
+<style>
+:root{
+  --bg:#0e1116;--bg2:#151a22;--bg3:#1c2330;--line:#252e3d;--fg:#e6ebf3;--fg2:#9aa7bb;
+  --accent:#4c8dff;--ok:#3ecf8e;--warn:#e8b339;--err:#e5646a;--radius:10px;
+  --mono:ui-monospace,SFMono-Regular,"SF Mono",Menlo,Consolas,monospace;
+}
+@media (prefers-color-scheme: light){
+ :root{--bg:#f4f6fa;--bg2:#fff;--bg3:#eef2f8;--line:#dbe2ec;--fg:#131923;--fg2:#5b6879;--accent:#2563eb;}
+}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%}
+body{background:var(--bg);color:var(--fg);font:14px/1.45 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif}
+button{font:inherit;color:inherit;background:var(--bg3);border:1px solid var(--line);border-radius:8px;padding:8px 12px;cursor:pointer;min-height:34px}
+button:hover{border-color:var(--accent)}
+button.primary{background:var(--accent);border-color:var(--accent);color:#fff}
+button.ghost{background:transparent}
+button:disabled{opacity:.45;cursor:not-allowed}
+input,select,textarea{font:inherit;color:inherit;background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:8px 10px;min-height:36px;width:100%}
+input:focus,select:focus,textarea:focus{outline:2px solid var(--accent);outline-offset:-1px}
+code,kbd{font-family:var(--mono);font-size:12.5px}
+.app{display:grid;grid-template-columns:220px 1fr;grid-template-rows:56px 1fr;height:100vh}
+header{grid-column:1/3;display:flex;align-items:center;gap:14px;padding:0 16px;border-bottom:1px solid var(--line);background:var(--bg2)}
+.brand{display:flex;align-items:center;gap:10px;font-weight:600}
+.logo{width:26px;height:26px;border-radius:7px;background:linear-gradient(135deg,#4c8dff,#8b5cf6)}
+.pill{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--line);border-radius:999px;padding:4px 10px;font-size:12px;color:var(--fg2);background:var(--bg3)}
+.dot{width:8px;height:8px;border-radius:50%;background:var(--fg2)}
+.dot.ok{background:var(--ok)}.dot.warn{background:var(--warn)}.dot.err{background:var(--err)}
+nav{border-right:1px solid var(--line);background:var(--bg2);padding:12px 8px;display:flex;flex-direction:column;gap:4px;overflow:auto}
+nav .sec{color:var(--fg2);font-size:11px;letter-spacing:.08em;text-transform:uppercase;padding:12px 10px 6px}
+nav a{display:flex;align-items:center;gap:10px;padding:9px 10px;border-radius:8px;color:var(--fg);text-decoration:none;min-height:42px}
+nav a:hover{background:var(--bg3)}
+nav a.on{background:linear-gradient(90deg,rgba(76,141,255,.22),rgba(76,141,255,.05));box-shadow:inset 2px 0 0 var(--accent)}
+nav a .badge{margin-left:auto;font-size:11px;color:var(--fg2)}
+main{padding:18px 22px;overflow:auto}
+h1{font-size:19px;margin:0 0 4px}
+h2{font-size:15px;margin:22px 0 10px;color:var(--fg)}
+.sub{color:var(--fg2);margin:0 0 16px;font-size:13px}
+.card{background:var(--bg2);border:1px solid var(--line);border-radius:var(--radius);padding:14px 16px}
+.row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.grid{display:grid;gap:14px}
+.g2{grid-template-columns:1fr 1fr}.g3{grid-template-columns:repeat(3,1fr)}
+.kv{display:grid;grid-template-columns:150px 1fr;gap:6px 14px;font-size:13px}
+.kv dt{color:var(--fg2)}.kv dd{margin:0;font-family:var(--mono);font-size:12.5px}
+table{width:100%;border-collapse:collapse;font-size:13px}
+th,td{text-align:left;padding:9px 10px;border-bottom:1px solid var(--line);vertical-align:middle}
+th{color:var(--fg2);font-weight:500;font-size:12px;text-transform:uppercase;letter-spacing:.05em}
+tr.sel{background:rgba(76,141,255,.10)}
+tbody tr:hover{background:var(--bg3)}
+.mono{font-family:var(--mono);font-size:12.5px}
+.muted{color:var(--fg2)}
+.tag{display:inline-block;padding:2px 7px;border-radius:6px;background:var(--bg3);border:1px solid var(--line);font-size:11.5px;color:var(--fg2)}
+.tag.ok{color:var(--ok);border-color:rgba(62,207,142,.4)}
+.tag.warn{color:var(--warn);border-color:rgba(232,179,57,.4)}
+.tag.err{color:var(--err);border-color:rgba(229,100,106,.4)}
+.split{display:grid;grid-template-columns:1.15fr .85fr;gap:14px;align-items:start}
+@media (max-width: 900px){ .app{grid-template-columns:1fr} nav{display:none} .split,.g2,.g3{grid-template-columns:1fr} main{padding:14px} }
+.tabs{display:flex;gap:6px;border-bottom:1px solid var(--line);margin:6px 0 14px;overflow:auto}
+.tabs button{background:none;border:none;border-bottom:2px solid transparent;border-radius:0;color:var(--fg2);padding:10px 12px;min-height:44px}
+.tabs button.on{color:var(--fg);border-bottom-color:var(--accent)}
+.block{border:1px solid var(--line);border-radius:var(--radius);margin-bottom:10px;overflow:hidden;background:var(--bg2)}
+.block>summary{cursor:pointer;padding:12px 14px;font-weight:600;list-style:none;display:flex;gap:10px;align-items:center;min-height:44px}
+.block>summary::-webkit-details-marker{display:none}
+.block>summary::after{content:"▾";margin-left:auto;color:var(--fg2);transition:.15s}
+.block[open]>summary::after{transform:rotate(180deg)}
+.block .body{padding:2px 14px 14px;display:grid;gap:12px}
+.f{display:grid;gap:5px}
+.f label{font-size:12.5px;color:var(--fg2)}
+.f .hint{font-size:11.5px;color:var(--fg2);opacity:.85}
+.choices{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:4px}
+.choices button{padding:7px 12px;min-height:38px}
+.choices button.on{background:var(--accent);border-color:var(--accent);color:#fff}
+.warnbox{border-left:3px solid var(--warn);background:rgba(232,179,57,.08);padding:10px 12px;border-radius:6px;font-size:12.5px}
+.warnbox b{display:block;margin-bottom:2px}
+.cmd{display:grid;grid-template-columns:1fr auto auto;gap:8px;align-items:center;background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:8px 10px}
+.cmd code{overflow:auto;white-space:nowrap}
+.term{background:#080b0f;border:1px solid var(--line);border-radius:var(--radius);padding:12px;font-family:var(--mono);font-size:12px;height:260px;overflow:auto;white-space:pre-wrap}
+.term .t{color:#5d6b80}.term .i{color:#7fb0ff}.term .w{color:#e8b339}.term .e{color:#e5646a}
+.spark{display:flex;align-items:flex-end;gap:2px;height:44px}
+.spark i{flex:1;background:linear-gradient(180deg,var(--accent),rgba(76,141,255,.25));border-radius:2px 2px 0 0;min-height:2px}
+.toast{position:fixed;right:16px;bottom:16px;display:grid;gap:8px;z-index:50}
+.toast div{background:var(--bg3);border:1px solid var(--line);border-left:3px solid var(--accent);border-radius:8px;padding:10px 14px;font-size:13px;box-shadow:0 8px 26px rgba(0,0,0,.35)}
+.foot{margin:22px 0 8px;color:var(--fg2);font-size:12px}
+.who{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}
+.who div{background:var(--bg2);border:1px solid var(--line);border-radius:var(--radius);padding:12px}
+.who .n{font-size:22px;font-weight:600}
+.who .l{color:var(--fg2);font-size:12px}
+</style>
+</head>
+<body>
+<div class="app">
+  <header>
+    <div class="brand"><i class="logo"></i> LX Web Console <span class="tag">prototype · SPEC 181</span></div>
+    <span class="pill" id="pillCore"><i class="dot ok"></i> core running</span>
+    <span class="pill" id="pillDaemon"><i class="dot ok"></i> lxd 1.14.4-lx.30</span>
+    <span class="pill" id="pillMachine">router · RouteRich (OpenWrt)</span>
+    <span style="margin-left:auto" class="pill" id="pillWho">session · operator</span>
+  </header>
+
+  <nav id="nav">
+    <div class="sec">Machine</div>
+    <a href="#" data-tab="dash" class="on">◉ Dashboard</a>
+    <a href="#" data-tab="proxies">⇄ Proxies <span class="badge" id="nProxies">6</span></a>
+    <a href="#" data-tab="routes">⇉ Routing</a>
+    <a href="#" data-tab="nodes">◈ Nodes <span class="badge" id="nNodes">7</span></a>
+    <div class="sec">Config</div>
+    <a href="#" data-tab="editor">✎ Node editor</a>
+    <a href="#" data-tab="build">⚙ Build</a>
+    <a href="#" data-tab="backup">↥ Backup</a>
+    <div class="sec">Daemon</div>
+    <a href="#" data-tab="service">⚑ Service</a>
+    <a href="#" data-tab="logs">▤ Logs</a>
+    <a href="#" data-tab="conns">⇅ Connections</a>
+  </nav>
+
+  <main id="main"></main>
+</div>
+<div class="toast" id="toast"></div>
+
+<script>
+const D = {"machine": {"id": "router", "name": "RouteRich (OpenWrt)", "addr": "192.168.1.1:9265", "goos": "linux", "goarch": "arm64", "version": "1.14.4-lx.30", "required": "1.14.4-lx.30", "reachable": true, "state_dir": "/etc/sing-box-lxd", "init": "procd", "ssh": "root@192.168.1.1", "core_status": "running", "uptime_s": 9321, "active_sha": "9f2c…a1", "last_good_sha": "9f2c…a1", "interrupted_apply": false}, "local": {"version": "1.14.4-lx.30", "required": "1.14.4-lx.30", "service_state": "ok", "paired": true, "reachable": true, "core_status": "running", "state_dir": "/etc/sing-box-lxd", "executable": "/usr/local/bin/sing-box", "log_path": "/var/log/sing-box-lxd/lxd.log", "listen": "127.0.0.1:9265", "tls": true, "uptime_s": 9321}, "tree": [{"kind": "folder", "id": "01J8Z", "name": "Work", "enabled": true, "nodes": 4, "replace": "work-fold"}, {"kind": "subscription", "id": "01K2M", "name": "Liberty", "url": "https://sub.example.net/api/v1/client/subscribe?token=***", "nodes": 292, "identity": {"ua": "Happ"}, "updated": "12 Nov 09:10", "error": null}, {"kind": "server", "id": "01M3F", "tag": "vless-3", "scheme": "vless", "subtitle": "vless · ws · TLS+REALITY", "warns": [], "disabled": false}, {"kind": "server", "id": "01M3G", "tag": "wg-office", "scheme": "wireguard", "subtitle": "wireguard · AWG 2.0 · 10.8.0.2/24", "warns": [], "disabled": false}, {"kind": "server", "id": "01M3H", "tag": "hy2-fast", "scheme": "hysteria2", "subtitle": "hysteria2 · obfs salamander", "warns": ["utls_fp_unknown"], "disabled": false}, {"kind": "server", "id": "01M3J", "tag": "vmess-old", "scheme": "vmess", "subtitle": "vmess · tcp · TLS", "warns": ["flow_deprecated"], "disabled": true}, {"kind": "chain", "id": "01M4A", "tag": "hop-eu", "subtitle": "chain · 2 hops", "warns": [], "disabled": false}], "proxies": [{"name": "direct-out", "delay": 56, "now": false, "type": "Direct"}, {"name": "🇳🇱 NL fastest", "delay": 68, "now": true, "type": "Selector"}, {"name": "vless-3", "delay": 68, "now": true, "type": "VLESS"}, {"name": "wg-office", "delay": 142, "now": false, "type": "WireGuard"}, {"name": "hy2-fast", "delay": 95, "now": false, "type": "Hysteria2"}, {"name": "vmess-old", "delay": 0, "now": false, "type": "VMess", "disabled": true}], "commands": [{"name": "update", "command": "/usr/bin/sing-box lxd update", "state": "done", "exit": 0, "client": "singbox-launcher"}, {"name": "restart", "command": "/etc/init.d/sing-box-lxd restart", "state": "idle", "exit": null, "client": ""}, {"name": "diag", "command": "/usr/bin/sing-box lxd diag > /tmp/lxd-diag.txt", "state": "idle", "exit": null, "client": ""}], "log": [["09:41:02", "INFO", "router: configuration swapped in place (sha 9f2c…a1)"], ["09:41:02", "INFO", "router: 42 outbounds, 8 rules, 6 dns servers"], ["09:41:07", "WARN", "outbound vless-3: REALITY fingerprint qq may not connect"], ["09:41:19", "INFO", "selector proxy-out: fastest → vless-3"], ["09:42:00", "INFO", "lan client 192.168.1.24 labeled \"TV\""]], "conns": [["Slack", "api.slack.com", "104.16.21.7:443", "vless-3", "domain_suffix", "12.4 KiB", "88.1 KiB"], ["Safari", "example.org", "93.184.216.34:443", "hy2-fast", "rule_set ru-direct", "1.2 MiB", "4.8 MiB"], ["qBittorrent", "tracker.example", "198.51.100.9:51413", "wg-office", "process_name", "411 KiB", "2.0 MiB"]], "host": {"model": "RouteRich R4", "os": "OpenWrt 24.10", "kernel": "6.6.73", "arch": "aarch64", "cpu": 18, "load": "0.31 / 0.28 / 0.22", "mem": "212 / 512 MiB", "disk": "1.8 / 4.0 GiB", "up_s": 9321}, "wire": [["09:41:02", "POST /admin/apply", "200", "18 ms"], ["09:41:02", "GET /admin/status", "200", "3 ms"], ["09:41:19", "gRPC SelectOutbound", "OK", "12 ms"], ["09:42:00", "PUT /admin/clients-info/labels/aa:…", "200", "4 ms"]], "routes": [["domain_suffix example.org → 🇳🇱 NL fastest", true], ["rule_set ru-blocked → block", true], ["process_name qbittorrent → wg-office", true], ["final → auto-proxy-out", true], ["lan 192.168.1.0/24 → direct", true], ["sniff (all protocols)", true]], "dns": {"servers": [["local", "192.168.1.1"], ["fakeip", "fakeip"], ["remote", "dns.google (DoT)"]], "rules": ["preferred_by [ru-blocked] → remote", "domain_suffix .lan → local", "A/AAAA → fakeip"]}};
+const REG = {"schemes": {"vless": {"kind": "outbound", "type": "vless", "order": ["server", "server_port", "uuid", "flow", "encryption", "network", "packet_encoding", "tls", "multiplex", "transport", "__dialer"], "form": {"blocks": ["connection", "tls", "transport", "advanced"], "choices": [{"id": "security", "block": "tls", "options": [{"id": "none", "paths": []}, {"id": "tls", "paths": ["tls.enabled"], "set": {"tls.enabled": true}}, {"id": "reality", "paths": ["tls.reality.enabled"], "set": {"tls.enabled": true, "tls.reality.enabled": true}}]}]}, "fields": {"server": {"t": "ref", "block": "connection", "req": true, "en": "Server address: domain or IP.", "ru": "Адрес сервера: домен или IP.", "ref": "dialer.common"}, "server_port": {"t": "ref", "block": "connection", "req": true, "en": "Server port.", "ru": "Порт сервера.", "ref": "dialer.common"}, "uuid": {"t": "string", "secret": true, "block": "connection", "req": true, "en": "User identifier.", "ru": "Идентификатор пользователя."}, "flow": {"t": "enum", "values": ["", "xtls-rprx-vision"], "block": "connection", "en": "XTLS flow control mode.", "ru": "Режим управления потоком XTLS."}, "encryption": {"t": "string", "block": "advanced", "en": "Post-quantum encryption layer.", "ru": "Постквантовый слой шифрования."}, "network": {"t": "ref", "en": "Networks this outbound handles.", "ru": "Сети, которые обслуживает этот узел.", "ref": "dialer.common"}, "packet_encoding": {"t": "enum", "values": ["", "packetaddr", "xudp"], "block": "advanced", "default": "xudp", "en": "How UDP packets are encapsulated.", "ru": "Способ инкапсуляции UDP-пакетов."}, "tls": {"t": "ref", "block": "tls", "en": "TLS settings.", "ru": "Настройки TLS.", "ref": "tls"}, "multiplex": {"t": "ref", "en": "Stream multiplexing settings.", "ru": "Настройки мультиплексирования потоков.", "ref": "multiplex"}, "transport": {"t": "ref", "block": "transport", "en": "V2Ray transport settings.", "ru": "Настройки транспорта V2Ray.", "ref": "transports"}, "__dialer": {"t": "ref", "en": "Common dialer fields, inlined flat into the body.", "ru": "Общие поля dialer, вливаются в тело плоско.", "ref": "dialer"}}}, "wireguard": {"kind": "endpoint", "type": "wireguard", "order": ["system", "name", "mtu", "address", "private_key", "listen_port", "peers", "udp_timeout", "udp_mapping", "udp_filtering", "udp_nat_max", "workers", "jc", "jmin", "jmax", "s1", "s2", "s3", "s4", "h1", "h2", "h3", "h4", "i1", "i2", "i3", "i4", "i5", "id", "ip", "ib", "header_protection_key", "content_padding_addition", "rekey_after_time", "rekey_timeout", "reject_after_time", "keepalive_timeout", "max_handshake_attempts", "random_trailers", "disable_cookies", "__dialer"], "form": {"blocks": ["connection", "amnezia", "advanced"]}, "fields": {"system": {"t": "bool", "default": false, "en": "Use a system interface instead of the userspace stack.", "ru": "Использовать системный интерфейс вместо стека в пространстве пользователя."}, "name": {"t": "string", "en": "Interface name when a system interface is used.", "ru": "Имя интерфейса при system=true."}, "mtu": {"t": "int", "block": "advanced", "default": 1408, "en": "Tunnel MTU in bytes.", "ru": "MTU туннеля в байтах."}, "address": {"t": "string_array", "block": "connection", "req": true, "en": "Addresses assigned to the tunnel interface.", "ru": "Адреса, назначенные интерфейсу туннеля."}, "private_key": {"t": "string", "secret": true, "block": "connection", "req": true, "en": "Local private key.", "ru": "Локальный закрытый ключ."}, "listen_port": {"t": "uint16", "en": "Local UDP port the tunnel listens on.", "ru": "Локальный порт UDP, который слушает туннель."}, "peers": {"t": "array", "block": "connection", "en": "List of WireGuard peers.", "ru": "Список пиров WireGuard."}, "jc": {"t": "int", "block": "amnezia", "en": "Number of junk packets sent before the handshake.", "ru": "Сколько мусорных пакетов слать перед рукопожатием."}, "jmin": {"t": "int", "block": "amnezia", "en": "Minimum size of a junk packet.", "ru": "Минимальный размер мусорного пакета."}, "jmax": {"t": "int", "block": "amnezia", "en": "Maximum size of a junk packet.", "ru": "Максимальный размер мусорного пакета."}, "s1": {"t": "int", "block": "amnezia", "en": "Junk prepended to the handshake initiation packet.", "ru": "Мусор перед пакетом инициации рукопожатия."}, "h1": {"t": "awg_range", "block": "amnezia", "en": "Magic header of the handshake initiation packet.", "ru": "Магический заголовок пакета инициации рукопожатия."}, "i1": {"t": "string", "block": "amnezia", "en": "First custom junk packet.", "ru": "Первый пользовательский мусорный пакет."}, "id": {"t": "string", "en": "Masquerade domain name.", "ru": "Домен маскировки."}}}}, "tls": {"order": ["enabled", "engine", "disable_sni", "server_name", "insecure", "alpn", "min_version", "max_version", "cipher_suites", "curve_preferences", "certificate", "certificate_path", "certificate_public_key_sha256", "client_certificate", "client_certificate_path", "client_key", "client_key_path", "fragment", "fragment_fallback_delay", "record_fragment", "spoof", "spoof_method", "kernel_tx", "kernel_rx", "handshake_timeout", "ech", "utls", "reality"], "fields": {"enabled": {"t": "bool", "default": false, "en": "Enable TLS for this outbound.", "ru": "Включить TLS для этого узла."}, "server_name": {"t": "string", "vw": {"tls.enabled": true}, "en": "Server name sent in SNI and verified in the certificate.", "ru": "Имя сервера в SNI и при проверке сертификата."}, "insecure": {"t": "bool", "vw": {"tls.enabled": true}, "default": false, "en": "Skip server certificate verification.", "ru": "Не проверять сертификат сервера."}, "alpn": {"t": "listable_string", "vw": {"tls.enabled": true}, "en": "ALPN protocols offered in the handshake.", "ru": "Список протоколов ALPN, предлагаемых в рукопожатии."}, "min_version": {"t": "enum", "values": ["1.0", "1.1", "1.2", "1.3"], "en": "Minimum accepted TLS version.", "ru": "Минимальная допустимая версия TLS."}, "max_version": {"t": "enum", "values": ["1.0", "1.1", "1.2", "1.3"], "en": "Maximum accepted TLS version.", "ru": "Максимальная допустимая версия TLS."}}}, "transport_variants": {"ws": {"params": {"path": {"t": "string", "en": "WebSocket request path.", "ru": "Путь запроса WebSocket."}, "host": {"t": "string", "en": "Host header of the WebSocket request.", "ru": "Заголовок Host запроса WebSocket."}}}, "grpc": {"params": {"serviceName": {"t": "string", "en": "gRPC service name.", "ru": "Имя сервиса gRPC."}}}, "http": {"params": {"path": {"t": "string", "en": "HTTP request path.", "ru": "Путь HTTP-запроса."}, "host": {"t": "string", "en": "Host list of the HTTP request.", "ru": "Список Host для HTTP-запроса."}}}, "httpupgrade": {"params": {"path": {"t": "string", "en": "HTTP Upgrade request path.", "ru": "Путь запроса HTTP Upgrade."}, "host": {"t": "string", "en": "Host of the HTTP Upgrade request.", "ru": "Host запроса HTTP Upgrade."}}}, "xhttp": {"params": {"path": {"t": "string", "en": "XHTTP request path. Anything after the first `?` is sent as the request query, as Xray does.", "ru": "Путь запроса XHTTP. Всё после первого `?` уходит query запроса, как у Xray."}, "host": {"t": "string", "en": "Host of the XHTTP request.", "ru": "Host запроса XHTTP."}, "mode": {"t": "enum", "values": ["", "auto", "packet-up", "stream-up", "stream-one"], "en": "XHTTP transfer mode.", "ru": "Режим передачи XHTTP."}}}}, "warnings": {"reality_fp_not_chrome": {"sev": "info", "t_en": "REALITY: fingerprint {value} may not connect", "t_ru": "REALITY: отпечаток {value} может не соединиться", "x_en": "The node uses REALITY with uTLS fingerprint {value}, which was kept as is. Modern REALITY servers expect the hybrid key exchange carried only by the chrome, firefox and safari fingerprints; with another one the server silently redirects the connection to its cover site.", "x_ru": "Узел использует REALITY с отпечатком uTLS {value}; отпечаток сохранён как есть. Современные REALITY-серверы ждут гибридный обмен ключами, который несут только отпечатки chrome, firefox и safari; с другим сервер молча уводит соединение на камуфляжный сайт."}, "utls_fp_unknown": {"sev": "warning", "t_en": "Unknown uTLS fingerprint replaced", "t_ru": "Неизвестный отпечаток uTLS заменён", "x_en": "The uTLS fingerprint {value} at {path} is not in the core dictionary. It was replaced with a known one, because the core rejects such a value and would refuse to start the whole config.", "x_ru": "Отпечаток uTLS {value} в поле {path} отсутствует в словаре ядра. Он заменён известным: ядро отвергает такое значение и не запустит весь конфиг."}, "duplicates_collapsed": {"sev": "info", "t_en": "Repeats of this server in the subscription: {count}", "t_ru": "Повторов этого сервера в подписке: {count}", "x_en": "The subscription lists this same server again with identical settings, under the names: {names} (repeats: {count}). They are one and the same connection, so only this entry is kept.", "x_ru": "В подписке этот же сервер с теми же настройками записан ещё раз под именами: {names} (повторов: {count}). Это одно и то же соединение, поэтому оставлена одна запись."}, "flow_deprecated": {"sev": "info", "t_en": "Obsolete flow removed", "t_ru": "Устаревший flow снят", "x_en": "The entry carried flow={flow}, which current cores no longer accept. The field at {path} was removed, because the core rejects such a value and would refuse to start the whole config; the node keeps working.", "x_ru": "В записи было flow={flow}, которое нынешние ядра больше не принимают. Поле {path} снято: ядро отвергает такое значение и не запустит весь конфиг. Узел продолжает работать."}, "transport_unsupported": {"sev": "warning", "t_en": "Transport replaced with {fallback}", "t_ru": "Транспорт заменён на {fallback}", "x_en": "The subscription asked for the {transport} transport, which this build of the core cannot run. The node was switched to {fallback}, because the core rejects an unknown transport and refuses to start the whole config.", "x_ru": "Подписка запрашивала транспорт {transport}, который эта сборка ядра не умеет. Узел переведён на {fallback}: ядро отвергает такое значение и не запустит весь конфиг."}, "tls_insecure": {"sev": "info", "t_en": "Certificate verification disabled", "t_ru": "Проверка сертификата отключена", "x_en": "The entry sets {path} to {value}, so the server certificate is not verified. The value was kept as the provider sent it; connections to this node can be intercepted without being noticed.", "x_ru": "В записи задано {path} = {value}, поэтому сертификат сервера не проверяется. Значение сохранено таким, каким его прислал провайдер; соединение с этим узлом можно перехватить незаметно."}, "vision_with_transport": {"sev": "info", "t_en": "flow removed: incompatible with transport", "t_ru": "flow снят: несовместим с транспортом", "x_en": "Without a VLESS Encryption layer, xtls-rprx-vision works only over bare TLS, but the node has {with} set and no encryption. The flow field at {path} was removed, because the value has no effect here; the node keeps working.", "x_ru": "Без слоя VLESS Encryption xtls-rprx-vision работает только поверх голого TLS, а у узла задан {with} и нет encryption. Поле flow ({path}) снято: значение не влияет и удалено. Узел продолжает работать."}, "field_missing": {"sev": "error", "t_en": "Required field {field} is missing", "t_ru": "Нет обязательного поля {field}", "x_en": "The entry has no {field}, although the protocol requires it. The node was dropped, because the core rejects such an entry and would refuse to start the whole config.", "x_ru": "В записи нет поля {field}, хотя протокол его требует. Узел отброшен: ядро отвергает такую запись и не запустит весь конфиг."}}, "labels": {"server": "Server", "server_port": "Port", "uuid": "UUID", "flow": "Flow", "username": "Username", "password": "Password", "encryption": "Encryption", "packet_encoding": "Packet encoding", "path": "Path", "version": "Version", "profile": "Profile", "private_key": "Private key", "public_key": "Public key", "address": "Address", "mtu": "MTU", "ip": "IPv4 address", "ipv6": "IPv6 address", "uri": "URI", "vhttp": "HTTP version", "quic": "QUIC", "quic_congestion_control": "Congestion control", "server_ports": "Port hopping", "hop_interval": "Hop interval", "up_mbps": "Upload, Mbps", "down_mbps": "Download, Mbps", "obfs.type": "Obfuscation", "obfs.password": "Obfuscation password", "udp_over_tcp.enabled": "UDP over TCP", "tls.enabled": "TLS", "tls.server_name": "SNI", "tls.insecure": "Allow insecure ⚠", "tls.alpn": "ALPN", "tls.utls.fingerprint": "uTLS fingerprint", "tls.reality.public_key": "REALITY public key", "tls.reality.short_id": "REALITY short ID", "transport.type": "Transport", "transport.path": "Path", "transport.host": "Host", "transport.service_name": "Service name", "transport.mode": "Mode", "peers.0.address": "Server", "peers.0.port": "Port", "peers.0.public_key": "Peer public key", "peers.0.pre_shared_key": "Pre-shared key", "peers.0.allowed_ips": "Allowed IPs", "peers.0.persistent_keepalive_interval": "Keepalive", "jc": "Jc", "wireguard": "Server", "server_cert_check": "Server certificate", "security": "Security"}};
+
+/* ---------- tiny helpers ---------- */
+const $ = (s,r=document)=>r.querySelector(s);
+const el = (t,attrs={},...kids)=>{const n=document.createElement(t);
+  for(const[k,v]of Object.entries(attrs)){
+    if(v===null||v===undefined||v===false) continue;
+    if(k==='class')n.className=v; else if(k.startsWith('on'))n.addEventListener(k.slice(2),v); else n.setAttribute(k,v); }
+  for(const c of kids.flat()) if(c!=null) n.append(c.nodeType?c:document.createTextNode(c));
+  return n;};
+const esc=s=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const mono=s=>el('code',{},String(s));
+const toast=m=>{const d=el('div',{},m); $('#toast').append(d); setTimeout(()=>d.remove(),2600);};
+const dur=s=>{const h=Math.floor(s/3600),m=Math.floor(s%3600/60);return (h?h+'h ':'')+m+'m '+(s%60)+'s';};
+
+/* ---------- registry-driven form (the real thing from contract/registry) ---------- */
+function activeChoice(group, body){
+  let fallback='',best='',score=0;
+  for(const o of group.options){
+    if(!o.paths || !o.paths.length){ if(!fallback) fallback=o.id; continue; }
+    const hit=o.paths.some(p=>getPath(body,p)!==undefined); if(!hit) continue;
+    let sc=0; const seen=new Set();
+    for(const p of [...o.paths, ...Object.keys(o.set||{})]){ if(seen.has(p))continue; seen.add(p); if(getPath(body,p)!==undefined) sc++; }
+    if(sc>score){best=o.id;score=sc;}
+  }
+  return best||fallback;
+}
+function getPath(o,p){ return p.split('.').reduce((a,k)=>a==null?undefined:a[k],o); }
+function visible(f,body){
+  if(!f.vw) return true;
+  for(const [p,want] of Object.entries(f.vw)){ const got=getPath(body,p); if((got===undefined?false:got)!==want) return false; }
+  return true;
+}
+function fieldInput(path,f,body){
+  const v = f.t==='ref' ? (f.ref==='tls' ? (getPath(body,'tls.enabled')?'tls':'') : '') : (getPath(body,path) ?? '');
+  const id='f_'+path.replace(/\./g,'_');
+  let inp;
+  if(f.values && f.values.length){
+    inp=el('select',{id}, el('option',{value:''},'Default'));
+    for(const val of f.values){ if(val==='')continue; inp.append(el('option',{value:val, selected:(String(v)===val)?'selected':null}, val)); }
+  } else if(f.t==='bool'){
+    inp=el('select',{id}, el('option',{value:'', selected:(v!==true)?'selected':null},'off'), el('option',{value:'true', selected:(v===true)?'selected':null},'on'));
+  } else if(f.secret){
+    inp=el('input',{id,type:'password',value:v,placeholder:'••••••••',autocomplete:'off'});
+  } else {
+    inp=el('input',{id,type:'text',value:v,placeholder:(f.default??''),inputmode:(/port|mtu|mbps|jc|jmin|jmax|s[1-4]/.test(path)?'numeric':'text')});
+  }
+  const hint = f.en ? el('span',{class:'hint'}, f.en) : null;
+  const label = (REG.labels[path] || path);
+  return el('div',{class:'f'}, el('label',{for:id}, label, f.req?el('span',{class:'tag warn',style:'margin-left:6px'},'required'):null), inp, hint);
+}
+function renderForm(scheme, body){
+  const S=REG.schemes[scheme]; const host=el('div');
+  if(!S) return host;
+  // choice groups first (security: none/tls/reality)
+  for(const g of (S.form.choices||[])){
+    const box = el('div',{class:'block',open:''}, el('summary',{}, 'Security: '+g.id));
+    const inner=el('div',{class:'choices'});
+    for(const o of g.options) inner.append(el('button',{class:(activeChoice(g,body)===o.id?'on':''),onclick:()=>toast('choice: '+g.id+' = '+o.id)},o.id));
+    box.append(el('div',{class:'body'}, inner)); host.append(box);
+  }
+  const byBlock={};
+  for(const path of S.order){
+    const f=S.fields[path]; if(!f) continue;
+    if(!visible(f,body)) continue;
+    const b=f.block||'other'; (byBlock[b]=byBlock[b]||[]).push([path,f]);
+  }
+  // sub-schema fields (tls.*, transport.*) come from their own sections
+  const tlsFields=[['tls.enabled',{t:'bool',block:'tls'}],['tls.server_name',{t:'string',block:'tls',en:'Server name (SNI) — only if it differs from the host'}],
+                   ['tls.insecure',{t:'bool',block:'tls',en:'Skip certificate verification (dangerous)'}],
+                   ['tls.alpn',{t:'list',block:'tls',en:'ALPN, comma-separated'}],
+                   ['tls.utls.fingerprint',{t:'string',block:'tls',en:'uTLS fingerprint, e.g. chrome'}],
+                   ['tls.reality.public_key',{t:'string',block:'tls',en:'REALITY public key'}],
+                   ['tls.reality.short_id',{t:'string',block:'tls',en:'REALITY short id'}]];
+  if(S.form.blocks.includes('tls')){
+    const have=(byBlock.tls=byBlock.tls||[]);
+    for(const [pp,f] of tlsFields) if(!have.some(([q])=>q===pp)) have.push([pp,f]);
+  }
+  // transport variants
+  if(S.form.blocks.includes('transport')){
+    const t=(byBlock.transport=byBlock.transport||[]);
+    t.push(['transport.type',{t:'enum',values:Object.keys(REG.transport_variants),block:'transport',en:'V2Ray transport kind; empty = plain'}]);
+    const cur=(getPath(body,'transport.type')||'');
+    const variants=REG.transport_variants[cur]||{};
+    for(const [p,f] of Object.entries(variants.params||{})) t.push(['transport.'+p,{...f,block:'transport'}]);
+  }
+  const order=['connection','tls','transport','advanced','amnezia','obfs','security','other'];
+  for(const b of order){
+    const fields=byBlock[b]; if(!fields||!fields.length) continue;
+    const d=el('details',{class:'block',open:''}, el('summary',{}, b[0].toUpperCase()+b.slice(1)));
+    const inside=el('div',{class:'body'});
+    for(const [p,f] of fields) inside.append(fieldInput(p,f,body));
+    d.append(inside); host.append(d);
+  }
+  return host;
+}
+
+/* ---------- views ---------- */
+const views={};
+views.dash=()=>{
+  const h=D.host, p=D.local;
+  return el('div',{},
+    el('h1',{},"Dashboard"),
+    el('p',{class:'sub'},"RouteRich (OpenWrt) · linux/arm64 · lxd core 1.14.4-lx.30 · uptime "+dur(h.up_s)),
+    el('div',{class:'who'},
+      el('div',{},el('div',{class:'n'},'42'),el('div',{class:'l'},'outbounds in config')),
+      el('div',{},el('div',{class:'n'},'8'),el('div',{class:'l'},'routing rules')),
+      el('div',{},el('div',{class:'n'},'6'),el('div',{class:'l'},'DNS servers')),
+      el('div',{},el('div',{class:'n'},'1'),el('div',{class:'l'},'auto-deploy profile'))),
+    el('h2',{},"Host telemetry"),
+    el('div',{class:'split'},
+      el('div',{class:'card'},
+        el('dl',{class:'kv'},
+          el('dt',{},'Model'),el('dd',{},h.model),
+          el('dt',{},'OS'),el('dd',{},h.os+' · '+h.kernel),
+          el('dt',{},'Arch'),el('dd',{},h.arch),
+          el('dt',{},'CPU'),el('dd',{},h.cpu+'% · load '+h.load),
+          el('dt',{},'Memory'),el('dd',{},h.mem),
+          el('dt',{},'Disk'),el('dd',{},h.disk)),
+        el('div',{class:'spark',style:'margin-top:12px'}, ...Array.from({length:34},(_,i)=>el('i',{style:'height:'+(8+Math.round(28*Math.abs(Math.sin(i/3.1))))+'%'})))),
+      el('div',{class:'card'},
+        el('h2',{style:'margin-top:0'},'Daemon passport'),
+        el('dl',{class:'kv'},
+          el('dt',{},'Service'),el('dd',{},el('span',{class:'tag ok'},p.service_state+' · procd')),
+          el('dt',{},'Version'),el('dd',{},p.version+'  ↔ required '+p.required),
+          el('dt',{},'State dir'),el('dd',{},p.state_dir),
+          el('dt',{},'Executable'),el('dd',{},p.executable),
+          el('dt',{},'Log'),el('dd',{},p.log_path),
+          el('dt',{},'Listen'),el('dd',{},p.listen+' · TLS '+p.tls)),
+        el('div',{class:'row',style:'margin-top:12px'},
+          el('button',{class:'primary',onclick:()=>toast('POST /api/v1/daemon/start')},'Start core'),
+          el('button',{onclick:()=>toast('POST /api/v1/daemon/rollback → last-good 9f2c…a1')},'Rollback config'),
+          el('button',{class:'ghost',onclick:()=>toast('PATCH /api/v1/daemon/log-level {"level":"debug"}')},'Log level')))));
+};
+views.proxies=()=>{
+  const t=el('table',{},el('thead',{},el('tr',{},el('th',{},'Outbound'),el('th',{},'Type'),el('th',{},'Delay'),el('th',{},''))));
+  const tb=el('tbody');
+  for(const p of D.proxies){
+    tb.append(el('tr',{class:p.now?'sel':''},
+      el('td',{}, el('b',{},p.name), p.now?el('span',{class:'tag ok',style:'margin-left:8px'},'active'):null),
+      el('td',{},el('span',{class:'tag'},p.type)),
+      el('td',{class:'mono'}, p.delay? p.delay+' ms' : '—'),
+      el('td',{}, el('button',{class:'ghost',onclick:()=>toast('POST /api/v1/proxies/switch ('+p.name+')')},'Use'),' ',
+                  el('button',{class:'ghost',onclick:()=>toast('URL-test '+p.name+' → 68 ms')},'Test'))));
+  }
+  t.append(tb);
+  return el('div',{},el('h1',{},"Proxies"),el('p',{class:'sub'},"Live over SSE topic proxies ← gRPC SubscribeGroups/SubscribeOutbounds. Switching is a POST; delays stream in place."),
+    el('div',{class:'card',style:'padding:0'},t));
+};
+views.routes=()=>{
+  const l=el('div',{class:'card'});
+  D.routes.forEach(([r,on])=>l.append(el('div',{class:'row',style:'justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--line)'},
+    el('span',{class:'mono'},r), el('span',{class:'tag '+(on?'ok':'')},on?'enabled':'off'))));
+  return el('div',{},el('h1',{},"Routing"),el('p',{class:'sub'},"Preset rules, inline rules and Directions — one list, drag to reorder, `num` preserved."),
+    el('div',{class:'split'},l,views.dnsCard()));
+};
+views.dnsCard=()=>el('div',{class:'card'},el('h2',{style:'margin-top:0'},'DNS'),
+  ...D.dns.servers.map(([k,v])=>el('div',{class:'row',style:'justify-content:space-between;padding:6px 0'},el('code',{},k),el('span',{class:'muted mono'},v))),
+  el('h2',{},'Rules'),...D.dns.rules.map(r=>el('div',{class:'mono muted',style:'padding:4px 0'},r)));
+views.nodes=()=>{
+  const rows=el('div');
+  for(const n of D.tree){
+    const icon={'folder':'▣','subscription':'⤓','server':'◈','chain':'⇉'}[n.kind];
+    rows.append(el('div',{class:'row',style:'justify-content:space-between;padding:9px 0;border-bottom:1px solid var(--line)'},
+      el('div',{class:'row'},
+        el('span',{class:'mono muted'},icon), el('b',{},n.tag||n.name),
+        n.subtitle?el('span',{class:'muted mono'},n.subtitle):null,
+        n.nodes?el('span',{class:'tag'},n.nodes+' nodes'):null,
+        n.replace?el('span',{class:'tag'},'fold: '+n.replace):null,
+        ...(n.warns||[]).map(w=>el('span',{class:'tag warn',title:(REG.warnings[w]||{}).x_en||''},w)),
+        n.disabled?el('span',{class:'tag err'},'disabled'):null),
+      el('div',{class:'row'},
+        n.kind==='server'?el('button',{class:'ghost',onclick:()=>go('editor',n.tag)},'Edit'):null,
+        n.kind==='subscription'?el('button',{class:'ghost',onclick:()=>toast('POST /state/subscriptions/'+n.id+'/refresh')},'Refresh'):null,
+        el('button',{class:'ghost',onclick:()=>toast('GET /api/v1/state/nodes/'+(n.tag||n.id))},'⋯'))));
+  }
+  return el('div',{},el('h1',{},"Nodes"),el('p',{class:'sub'},"Tree of folders, subscriptions and servers. Warnings come from contract/registry/warnings.json — same codes as the desktop GUI and LxBox."),
+    el('div',{class:'card'},rows),
+    el('div',{class:'card',style:'margin-top:14px'},
+      el('h2',{style:'margin-top:0'},'Add nodes — paste anything'),
+      el('p',{class:'sub'},'share links · base64 list · sing-box JSON · Xray array · WireGuard/AWG .conf · vpn:// profile'),
+      el('textarea',{rows:'5',placeholder:'vless://…\nss://…\nvpn://…'},''),
+      el('div',{class:'row',style:'margin-top:8px'},
+        el('button',{class:'primary',onclick:()=>toast('POST /api/v1/parse → 3 nodes, 1 warning (dry run, nothing saved)')},'Parse (dry run)'),
+        el('button',{class:'ghost',onclick:()=>toast('POST /api/v1/state/nodes {"input":…}')},'Add to state'))));
+};
+views.editor=()=>{
+  const tag=(cur.tag||'vless-3');
+  const body={
+    server:'nl1.example.com',server_port:443,
+    uuid:'11111111-2222-3333-4444-555555555555',
+    flow:'xtls-rprx-vision',
+    tls:{enabled:true,reality:{enabled:true,public_key:'mLmBhbVFfNuo2eUgBh6r9-5Koz9mUCn3aSzlR6IejUg',short_id:'d8c6b58b'},server_name:'cdn.example.com',utls:{enabled:true,fingerprint:'qq'}},
+    transport:{type:'ws',path:'/ray',headers:{Host:'cdn.example.com'}}
+  };
+  return el('div',{},
+    el('h1',{},'Node editor'),
+    el('p',{class:'sub'},'Form built from contract/registry: blocks, visible_when, choices, variants — the same tables the Fyne GUI and LxBox read. Nothing here is hand-drawn per protocol.'),
+    el('div',{class:'split'},
+      el('div',{},
+        el('div',{class:'card',style:'margin-bottom:12px'},
+          el('div',{class:'row',style:'justify-content:space-between'},
+            el('b',{},tag), el('span',{class:'tag'},'vless · outbound'),
+            el('span',{style:'margin-left:auto',class:'tag warn'},'reality_fp_not_chrome')),
+          el('p',{class:'sub',style:'margin:6px 0 0'},'Body size 214 B · emitted URI matches the source link (round-trip verified by the contract corpus).')),
+        renderForm('vless', body),
+        el('div',{class:'row',style:'margin-top:6px'},
+          el('button',{class:'primary',onclick:()=>toast('PUT /api/v1/state/nodes/vless-3 {…} → rev 43, config rebuilt')},'Save node'),
+          el('button',{class:'ghost',onclick:()=>toast('POST /api/v1/emit → vless://…@nl1.example.com:443?…')},'Share URI'),
+          el('button',{class:'ghost',onclick:()=>toast('DELETE /api/v1/state/nodes?tag=vless-3')},'Delete'))),
+      el('div',{},
+        el('div',{class:'card',style:'margin-bottom:12px'},
+          el('h2',{style:'margin-top:0'},'Warnings'),
+          el('div',{class:'warnbox'}, el('b',{},(REG.warnings['reality_fp_not_chrome']||{}).t_en||'REALITY fingerprint'),
+            (REG.warnings['reality_fp_not_chrome']||{}).x_en||'')),
+        el('div',{class:'card'},
+          el('h2',{style:'margin-top:0'},'Body JSON'),
+          el('pre',{class:'mono muted',style:'white-space:pre-wrap;margin:0'},JSON.stringify(body,null,2))))));
+};
+views.build=()=>el('div',{},el('h1',{},"Build config"),
+  el('p',{class:'sub'},"Template + vars + nodes → config.json, with the build report (what was dropped and why). Same code path as the desktop Save."),
+  el('div',{class:'split'},
+    el('div',{class:'card'},el('h2',{style:'margin-top:0'},'Report'),
+      ...[['template','ok','42 outbounds, 8 rules, 6 dns servers'],
+          ['template_degraded','warn','vars[mtu] = "1500 " trimmed'],
+          ['core_unsupported','warn','1 node dropped: naive (core 1.14.4-lx.30 has no naive)'],
+          ['duplicates_collapsed','ok','subscription Liberty: 3 repeats collapsed']].map(([k,s,t])=>
+        el('div',{class:'row',style:'padding:7px 0;border-bottom:1px solid var(--line)'},
+          el('span',{class:'tag '+(s==='warn'?'warn':'ok')},k), el('span',{class:'mono muted'},t)))),
+    el('div',{class:'card'},el('h2',{style:'margin-top:0'},'Deploy to router'),
+      el('p',{class:'sub'},'Resources strictly before the config. Daemon validates and rolls back to last-good on reject.'),
+      el('div',{class:'row'},el('button',{class:'primary',onclick:()=>toast('POST /api/v1/machines/router/deploy → 200, sha 9f2c…a1')},'Deploy'),
+        el('button',{class:'ghost',onclick:()=>toast('GET /api/v1/machines/router/config/built')},'Preview JSON'))))
+);
+views.backup=()=>el('div',{},el('h1',{},"Backup"),
+  el('p',{class:'sub'},"LX Backup 1.0 — the same file desktop and LxBox exchange. Export from the router, import on the phone, nothing silently lost: unpromotable bits come back as warnings."),
+  el('div',{class:'grid g2'},
+    el('div',{class:'card'},el('h2',{style:'margin-top:0'},'Export'),
+      el('p',{class:'sub'},'subscriptions · rules · DNS · vars · disabled marks · per-machine profile'),
+      el('button',{class:'primary',onclick:()=>toast('GET /api/v1/machines/router/backup/export → lx-backup-2026-11-12.json')},'Download')),
+    el('div',{class:'card'},el('h2',{style:'margin-top:0'},'Import'),
+      el('p',{class:'sub'},'either format; unknown keys reported, never applied silently'),
+      el('button',{onclick:()=>toast('POST /api/v1/state/backup/import (dry run first)')},'Choose file…'))));
+views.service=()=>{
+  const cmds=el('div',{style:'display:grid;gap:8px'});
+  for(const c of D.commands){
+    cmds.append(el('div',{class:'cmd'},
+      el('code',{},c.command),
+      el('span',{class:'tag '+(c.state==='done'?'ok':'')},c.state+(c.exit!=null?' · exit '+c.exit:'')),
+      el('span',{class:'row'},
+        el('button',{class:'ghost',onclick:()=>toast('copied — paste it into your own ssh session')},'⧉'),
+        el('button',{class:'ghost',onclick:()=>toast('POST /api/v1/daemon/commands/'+c.name)},'▶'))));
+  }
+  return el('div',{},el('h1',{},"Service"),
+    el('p',{class:'sub'},"Diagnosis first, then the runbook (SPEC 161). Commands are shown and copied — never executed by the console: sudo stays in your terminal."),
+    el('div',{class:'card',style:'margin-bottom:14px'},
+      el('div',{class:'row'},el('span',{class:'tag ok'},'ok'),el('b',{},'Daemon is running'),
+        el('span',{class:'muted mono'},D.local.executable+' · procd · lxd 1.14.4-lx.30'))),
+    el('div',{class:'card'},el('h2',{style:'margin-top:0'},'Named commands from daemon.json'),
+      el('p',{class:'sub'},'POST is body-less by contract; state and the log tail stream back over SSE.'),
+      cmds),
+    el('div',{class:'card',style:'margin-top:14px'},el('h2',{style:'margin-top:0'},'Reference'),
+      el('dl',{class:'kv'},
+        el('dt',{},'Service'),el('dd',{},'/etc/init.d/sing-box-lxd'),
+        el('dt',{},'daemon.json'),el('dd',{},D.local.state_dir+'/daemon.json'),
+        el('dt',{},'Core log'),el('dd',{},D.local.log_path),
+        el('dt',{},'Persist'),el('dd',{},'log_size 8 MiB · 2 files'))));
+};
+views.logs=()=>{
+  const t=el('div',{class:'term'});
+  for(const [ts,lv,msg] of D.log) t.append(el('div',{},el('span',{class:'t'},ts+' '),el('span',{class:lv==='WARN'?'w':'i'},lv+' '),msg));
+  const w=el('table',{},el('thead',{},el('tr',{},el('th',{},'time'),el('th',{},'op'),el('th',{},'code'),el('th',{},'took'))),el('tbody'));
+  for(const [ts,op,code,took] of D.wire) w.querySelector('tbody').append(el('tr',{},el('td',{class:'mono'},ts),el('td',{class:'mono'},op),el('td',{class:'mono'},code),el('td',{class:'mono'},took)));
+  return el('div',{},el('h1',{},"Logs"),
+    el('p',{class:'sub'},"SSE topic log ← gRPC SubscribeLog; wire journal is metadata only (no bodies — config with node keys never lands in a log buffer)."),
+    el('div',{class:'split'},el('div',{class:'card'},t),el('div',{class:'card'},el('h2',{style:'margin-top:0'},'Wire journal'),w)));
+};
+views.conns=()=>{
+  const t=el('table',{},el('thead',{},el('tr',{},...['Process','Host','Dest','Outbound','Rule','↑','↓'].map(x=>el('th',{},x)))),el('tbody'));
+  for(const c of D.conns) t.querySelector('tbody').append(el('tr',{},...c.map((x,i)=>el('td',{class:i>1?'mono':''},x))));
+  return el('div',{},el('h1',{},"Connections"),
+    el('p',{class:'sub'},"SSE topic conns ← gRPC SubscribeConnections. The routing decision is visible: which rule, which chain, which outbound."),
+    el('div',{class:'card',style:'padding:0'},t));
+};
+
+/* ---------- router ---------- */
+let cur={tab:'dash',tag:null};
+function go(tab,tag){cur={tab,tag};[...$('#nav').querySelectorAll('a')].forEach(a=>a.classList.toggle('on',a.dataset.tab===tab));
+  $('#main').replaceChildren((views[tab]||views.dash)(cur));
+  try{ history.replaceState(null,'','#'+tab+(tag?('/'+tag):'')); }catch(e){ location.hash=tab+(tag?('/'+tag):''); }
+  $('#main').scrollTop=0;}
+$('#nav').addEventListener('click',e=>{const a=e.target.closest('a'); if(!a)return; e.preventDefault(); go(a.dataset.tab);});
+const initial=(location.hash||'').replace('#','').split('/');
+go(views[initial[0]]?initial[0]:'dash', initial[1]||null);
+setTimeout(()=>toast('prototype: data is synthetic, form layout is generated from contract/registry'),600);
+</script>
+</body>
+</html>
